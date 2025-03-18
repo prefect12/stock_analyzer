@@ -11,7 +11,7 @@
 
 ## 星标历史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=您的用户名/股票回测平台&type=Date)](https://star-history.com/#您的用户名/股票回测平台&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=prefect12/stock_analyzer&type=Date)](https://star-history.com/#prefect12/stock_analyzer&Date)
 
 ## 技术栈
 
