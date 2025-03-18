@@ -8,9 +8,6 @@
 - **图表比较**：直观对比多支股票/ETF的历史表现
 - **策略回测**：测试自定义交易策略在历史数据上的表现
 
-## 星标历史
-
-[![Star History Chart](https://api.star-history.com/svg?repos=prefect12/stock_analyzer&type=Date)](https://star-history.com/#prefect12/stock_analyzer&Date)
 
 ## 技术栈
 
@@ -89,11 +86,16 @@ stock_backtest/
 
 ## 后续开发计划
 
-- 添加更多交易策略
-- 优化回测性能
-- 引入机器学习预测模型
-- 支持更多数据来源
-- 增加用户账户系统
+- [ ] 添加更多交易策略
+- [ ] 优化回测性能
+- [ ] 引入机器学习预测模型
+- [ ] 支持更多数据来源
+- [ ] 增加用户账户系统
+
+## 星标历史
+
+[![Star History Chart](https://api.star-history.com/svg?repos=prefect12/stock_analyzer&type=Date)](https://star-history.com/#prefect12/stock_analyzer&Date)
+
 
 ## 许可证
 
