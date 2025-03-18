@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import yfinance as yf
 import json
+import time
 from datetime import datetime, timedelta
 import numpy as np
 from config import Config
@@ -239,192 +240,218 @@ def get_yahoo_finance_data(symbol, period='max', columns=None, include_indicator
     """
     log_info(f"开始从Yahoo Finance获取{symbol}的完整数据，周期: {period}")
     
-    try:
-        # 创建Ticker对象
-        ticker = yf.Ticker(symbol)
-        
-        # 一次性获取所有历史数据
-        history_data = ticker.history(period=period)
-        
-        if history_data.empty:
-            log_error(f"无法获取{symbol}的历史数据")
-            return None
-        
-        # 筛选指定的列
-        if columns and all(col in history_data.columns for col in columns):
-            filtered_data = history_data[columns]
-            log_info(f"数据已筛选为指定列: {columns}")
-        else:
-            filtered_data = history_data
-            if columns:
-                log_error(f"一些请求的列不存在，使用所有可用列")
-        
-        # 计算技术指标
-        if include_indicators:
-            try:
-                # 计算移动平均线
-                if 'Close' in filtered_data.columns:
-                    filtered_data['MA5'] = filtered_data['Close'].rolling(window=5).mean()
-                    filtered_data['MA10'] = filtered_data['Close'].rolling(window=10).mean()
-                    filtered_data['MA20'] = filtered_data['Close'].rolling(window=20).mean()
-                    filtered_data['MA60'] = filtered_data['Close'].rolling(window=60).mean()
-                    filtered_data['MA120'] = filtered_data['Close'].rolling(window=120).mean()
-                    filtered_data['MA250'] = filtered_data['Close'].rolling(window=250).mean()
-                    
-                    # 计算相对强弱指标 (RSI)
-                    delta = filtered_data['Close'].diff()
-                    gain = delta.where(delta > 0, 0)
-                    loss = -delta.where(delta < 0, 0)
-                    avg_gain = gain.rolling(window=14).mean()
-                    avg_loss = loss.rolling(window=14).mean()
-                    rs = avg_gain / avg_loss
-                    filtered_data['RSI'] = 100 - (100 / (1 + rs))
-                    
-                    # 计算MACD
-                    exp1 = filtered_data['Close'].ewm(span=12, adjust=False).mean()
-                    exp2 = filtered_data['Close'].ewm(span=26, adjust=False).mean()
-                    macd = exp1 - exp2
-                    signal = macd.ewm(span=9, adjust=False).mean()
-                    hist = macd - signal
-                    filtered_data['MACD'] = macd
-                    filtered_data['MACD_Signal'] = signal
-                    filtered_data['MACD_Hist'] = hist
-                    
-                    # 计算布林带
-                    filtered_data['BB_Middle'] = filtered_data['Close'].rolling(window=20).mean()
-                    std = filtered_data['Close'].rolling(window=20).std()
-                    filtered_data['BB_Upper'] = filtered_data['BB_Middle'] + (std * 2)
-                    filtered_data['BB_Lower'] = filtered_data['BB_Middle'] - (std * 2)
-                    
-                    # 添加成交量指标
-                    if 'Volume' in filtered_data.columns:
-                        filtered_data['Volume_MA20'] = filtered_data['Volume'].rolling(window=20).mean()
-                    
-                    log_info(f"已计算技术指标: MA5/10/20/60/120/250, RSI, MACD, 布林带")
-                else:
-                    log_error(f"无法计算技术指标: 缺少'Close'列")
-            except Exception as e:
-                log_error(f"计算技术指标时出错: {e}")
-                    
-        # 获取基本信息
+    # 重试次数和延迟
+    max_retries = 3
+    retry_delay = 2  # 秒
+    
+    for attempt in range(max_retries):
         try:
-            info = ticker.info
-            log_info(f"成功获取{symbol}的基本信息")
-        except Exception as e:
-            log_error(f"获取{symbol}基本信息时出错: {e}")
-            info = {}
-        
-        # 获取股息数据
-        try:
-            if hasattr(ticker, 'dividends') and hasattr(ticker.dividends, 'to_dict'):
-                dividends = ticker.dividends.to_dict()
-                log_info(f"成功获取{symbol}的股息数据")
-            else:
-                dividends = {}
-        except Exception as e:
-            log_error(f"获取{symbol}股息数据时出错: {e}")
-            dividends = {}
-        
-        # 转换历史数据为字典格式
-        price_data = []
-        for date, row in filtered_data.iterrows():
-            date_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)
-            row_dict = {
-                'date': date_str
-            }
+            # 创建Ticker对象
+            ticker = yf.Ticker(symbol)
             
-            # 添加所有可用的列
-            for col in row.index:
-                if not pd.isna(row[col]):  # 排除NaN值
-                    if isinstance(row[col], (int, np.integer)):
-                        row_dict[col.lower()] = int(row[col])
-                    elif isinstance(row[col], (float, np.floating)):
-                        row_dict[col.lower()] = float(row[col]) 
-                    else:
-                        row_dict[col.lower()] = row[col]
+            # 一次性获取所有历史数据
+            history_data = ticker.history(period=period)
             
-            price_data.append(row_dict)
-        
-        # 计算基本指标
-        if len(filtered_data) > 0 and 'Close' in filtered_data.columns:
-            try:
-                change_pct = float((filtered_data['Close'].iloc[-1] / filtered_data['Close'].iloc[0] - 1) * 100)
-                log_info(f"{symbol}总涨跌幅: {change_pct:.2f}%")
-            except Exception as e:
-                log_error(f"计算{symbol}涨跌幅时出错: {e}")
-                change_pct = 0.0
-            
-            try:
-                returns = filtered_data['Close'].pct_change().dropna()
-                annual_return = float(returns.mean() * 252 * 100)
-                volatility = float(returns.std() * np.sqrt(252) * 100)
-                log_info(f"{symbol}年化收益率: {annual_return:.2f}%, 波动率: {volatility:.2f}%")
-            except Exception as e:
-                log_error(f"计算{symbol}收益率或波动率时出错: {e}")
-                annual_return = 0.0
-                volatility = 0.0
-            
-            # 添加夏普比率
-            try:
-                risk_free_rate = 0.03  # 假设的无风险收益率，通常使用短期国债收益率
-                sharpe_ratio = (annual_return / 100 - risk_free_rate) / (volatility / 100) if volatility > 0 else 0
-                log_info(f"{symbol}夏普比率: {sharpe_ratio:.2f}")
-            except Exception as e:
-                log_error(f"计算{symbol}夏普比率时出错: {e}")
-                sharpe_ratio = 0.0
+            if history_data.empty:
+                log_warning(f"获取到的{symbol}数据为空，尝试 {attempt+1}/{max_retries}")
+                time.sleep(retry_delay)
+                continue
                 
-            # 计算最大回撤
-            try:
-                prices = filtered_data['Close']
-                rolling_max = prices.cummax()
-                drawdowns = (prices / rolling_max - 1) * 100
-                max_drawdown = float(drawdowns.min())
-                log_info(f"{symbol}最大回撤: {max_drawdown:.2f}%")
-            except Exception as e:
-                log_error(f"计算{symbol}最大回撤时出错: {e}")
-                max_drawdown = 0.0
+            log_info(f"成功获取{symbol}数据，共{len(history_data)}条记录")
             
-            stats = {
-                'latest_price': float(filtered_data['Close'].iloc[-1]),
-                'change_pct': change_pct,
-                'annual_return': annual_return,
-                'volatility': volatility,
-                'sharpe_ratio': sharpe_ratio,
-                'max_drawdown': max_drawdown,
-                'beta': 0.0,  # 需要与市场比较才能计算
-                'pe_ratio': float(info.get('trailingPE', 0)) if info.get('trailingPE') else 0,
-                'div_yield': float(info.get('dividendYield', 0) * 100) if info.get('dividendYield') else 0
+            # 筛选指定的列
+            filtered_data = history_data
+            if columns and all(col in history_data.columns for col in columns):
+                filtered_data = history_data[columns]
+                log_info(f"数据已筛选为指定列: {columns}")
+            
+            # 计算技术指标
+            if include_indicators:
+                try:
+                    # 计算移动平均线
+                    if 'Close' in filtered_data.columns:
+                        filtered_data['MA5'] = filtered_data['Close'].rolling(window=5).mean()
+                        filtered_data['MA10'] = filtered_data['Close'].rolling(window=10).mean()
+                        filtered_data['MA20'] = filtered_data['Close'].rolling(window=20).mean()
+                        filtered_data['MA60'] = filtered_data['Close'].rolling(window=60).mean()
+                        filtered_data['MA120'] = filtered_data['Close'].rolling(window=120).mean()
+                        filtered_data['MA250'] = filtered_data['Close'].rolling(window=250).mean()
+                        
+                        # 计算相对强弱指标 (RSI)
+                        delta = filtered_data['Close'].diff()
+                        gain = delta.where(delta > 0, 0)
+                        loss = -delta.where(delta < 0, 0)
+                        avg_gain = gain.rolling(window=14).mean()
+                        avg_loss = loss.rolling(window=14).mean()
+                        rs = avg_gain / avg_loss
+                        filtered_data['RSI'] = 100 - (100 / (1 + rs))
+                        
+                        # 计算MACD
+                        exp1 = filtered_data['Close'].ewm(span=12, adjust=False).mean()
+                        exp2 = filtered_data['Close'].ewm(span=26, adjust=False).mean()
+                        macd = exp1 - exp2
+                        signal = macd.ewm(span=9, adjust=False).mean()
+                        hist = macd - signal
+                        filtered_data['MACD'] = macd
+                        filtered_data['MACD_Signal'] = signal
+                        filtered_data['MACD_Hist'] = hist
+                        
+                        # 计算布林带
+                        filtered_data['BB_Middle'] = filtered_data['Close'].rolling(window=20).mean()
+                        std = filtered_data['Close'].rolling(window=20).std()
+                        filtered_data['BB_Upper'] = filtered_data['BB_Middle'] + (std * 2)
+                        filtered_data['BB_Lower'] = filtered_data['BB_Middle'] - (std * 2)
+                        
+                        # 添加成交量指标
+                        if 'Volume' in filtered_data.columns:
+                            filtered_data['Volume_MA20'] = filtered_data['Volume'].rolling(window=20).mean()
+                        
+                        log_info(f"已计算技术指标: MA5/10/20/60/120/250, RSI, MACD, 布林带")
+                except Exception as e:
+                    log_error(f"计算技术指标时出错: {e}")
+                        
+            # 获取基本信息
+            try:
+                info = ticker.info
+                log_info(f"成功获取{symbol}的基本信息")
+            except Exception as e:
+                log_error(f"获取{symbol}基本信息时出错: {e}")
+                info = {}
+            
+            # 获取股息数据
+            try:
+                dividends = ticker.dividends.to_dict() if hasattr(ticker, 'dividends') else {}
+                log_info(f"成功获取{symbol}的股息数据")
+            except Exception as e:
+                log_error(f"获取{symbol}股息数据时出错: {e}")
+                dividends = {}
+            
+            # 转换历史数据为字典格式
+            price_data = []
+            for date, row in filtered_data.iterrows():
+                date_str = date.strftime('%Y-%m-%d') if hasattr(date, 'strftime') else str(date)
+                row_dict = {'date': date_str}
+                
+                # 添加所有可用的列
+                for col in row.index:
+                    if not pd.isna(row[col]):  # 排除NaN值
+                        if isinstance(row[col], (int, np.integer)):
+                            row_dict[col.lower()] = int(row[col])
+                        elif isinstance(row[col], (float, np.floating)):
+                            row_dict[col.lower()] = float(row[col]) 
+                        else:
+                            row_dict[col.lower()] = row[col]
+            
+                price_data.append(row_dict)
+            
+            # 计算基本指标
+            stats = {}
+            if len(filtered_data) > 0 and 'Close' in filtered_data.columns:
+                try:
+                    stats['latest_price'] = float(filtered_data['Close'].iloc[-1])
+                    change_pct = float((filtered_data['Close'].iloc[-1] / filtered_data['Close'].iloc[0] - 1) * 100)
+                    stats['change_pct'] = change_pct
+                    log_info(f"{symbol}总涨跌幅: {change_pct:.2f}%")
+                except Exception as e:
+                    log_error(f"计算{symbol}涨跌幅时出错: {e}")
+                    stats['latest_price'] = 0.0
+                    stats['change_pct'] = 0.0
+                
+                try:
+                    returns = filtered_data['Close'].pct_change().dropna()
+                    annual_return = float(returns.mean() * 252 * 100)
+                    volatility = float(returns.std() * np.sqrt(252) * 100)
+                    stats['annual_return'] = annual_return
+                    stats['volatility'] = volatility
+                    log_info(f"{symbol}年化收益率: {annual_return:.2f}%, 波动率: {volatility:.2f}%")
+                except Exception as e:
+                    log_error(f"计算{symbol}收益率或波动率时出错: {e}")
+                    stats['annual_return'] = 0.0
+                    stats['volatility'] = 0.0
+                
+                # 添加夏普比率
+                try:
+                    risk_free_rate = 0.03  # 假设的无风险收益率，通常使用短期国债收益率
+                    sharpe_ratio = (annual_return / 100 - risk_free_rate) / (volatility / 100) if volatility > 0 else 0
+                    stats['sharpe_ratio'] = sharpe_ratio
+                    log_info(f"{symbol}夏普比率: {sharpe_ratio:.2f}")
+                except Exception as e:
+                    log_error(f"计算{symbol}夏普比率时出错: {e}")
+                    stats['sharpe_ratio'] = 0.0
+                    
+                # 计算最大回撤
+                try:
+                    prices = filtered_data['Close']
+                    rolling_max = prices.cummax()
+                    drawdowns = (prices / rolling_max - 1) * 100
+                    max_drawdown = float(drawdowns.min())
+                    stats['max_drawdown'] = max_drawdown
+                    log_info(f"{symbol}最大回撤: {max_drawdown:.2f}%")
+                except Exception as e:
+                    log_error(f"计算{symbol}最大回撤时出错: {e}")
+                    stats['max_drawdown'] = 0.0
+            
+            # 添加其他基本面指标
+            if info:
+                if 'trailingPE' in info:
+                    stats['pe_ratio'] = info['trailingPE']
+                elif 'forwardPE' in info:
+                    stats['pe_ratio'] = info['forwardPE']
+                else:
+                    stats['pe_ratio'] = 0
+                    
+                if 'dividendYield' in info and info['dividendYield'] is not None:
+                    stats['div_yield'] = info['dividendYield'] * 100
+                else:
+                    stats['div_yield'] = 0
+                    
+                if 'beta' in info and info['beta'] is not None:
+                    stats['beta'] = info['beta']
+                else:
+                    stats['beta'] = 1.0
+            else:
+                stats['pe_ratio'] = 0
+                stats['div_yield'] = 0
+                stats['beta'] = 1.0
+                
+            # 收集所有数据
+            result = {
+                'symbol': symbol,
+                'name': info.get('shortName', symbol) if info else symbol,
+                'price_data': price_data,
+                'stats': stats,
+                'info': info,
+                'dividends': dividends
             }
-        else:
-            stats = {
-                'latest_price': 0,
-                'change_pct': 0,
-                'annual_return': 0,
-                'volatility': 0,
-                'sharpe_ratio': 0,
-                'max_drawdown': 0,
-                'beta': 0,
-                'pe_ratio': 0,
-                'div_yield': 0
-            }
-        
-        # 组装完整结果
-        result = {
-            'symbol': symbol,
-            'name': info.get('shortName', symbol),
-            'price_data': price_data,
-            'stats': stats,
-            'info': {k: v for k, v in info.items() if isinstance(v, (str, int, float, bool, type(None)))},
-            'dividends': dividends,
-            'raw_history': filtered_data.to_dict('records')  # 保存处理后的DataFrame数据
-        }
-        
-        log_info(f"成功获取{symbol}的完整数据，共{len(price_data)}个交易日")
-        return result
-        
-    except Exception as e:
-        log_error(f"获取{symbol}数据时发生异常: {e}")
-        return None
+            
+            return result
+            
+        except Exception as e:
+            log_error(f"尝试获取{symbol}数据时发生错误: {e}")
+            time.sleep(retry_delay)
+    
+    # 如果所有尝试都失败，返回空结果
+    log_error(f"在{max_retries}次尝试后无法获取{symbol}的数据")
+    
+    # 返回一个最小的有效数据结构
+    return {
+        'symbol': symbol,
+        'name': symbol,
+        'price_data': [],
+        'stats': {
+            'latest_price': 0,
+            'change_pct': 0,
+            'annual_return': 0,
+            'volatility': 0,
+            'sharpe_ratio': 0,
+            'max_drawdown': 0,
+            'beta': 1.0,
+            'pe_ratio': 0,
+            'div_yield': 0
+        },
+        'info': {},
+        'dividends': {}
+    }
 
 # 示例：如何使用Yahoo Finance数据获取函数
 def example_yahoo_data_usage():
