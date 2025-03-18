@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}股票列表 - 股票分析与回测平台{% endblock %}
+
+{% block extra_head %}
+<style>
+    .stock-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .stock-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    .sector-filter {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    
+    .sector-filter:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .sector-filter.active {
+        background-color: #e9ecef;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/home">首页</a></li>
+            <li class="breadcrumb-item active">股票</li>
+        </ol>
+    </nav>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">搜索股票</h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="stockSearch" placeholder="输入股票代码或名称">
+                        <button class="btn btn-primary" type="button" id="searchBtn">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">筛选条件</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        <a href="#" class="list-group-item list-group-item-action sector-filter active" data-sector="all">全部行业</a>
+                        <a href="#" class="list-group-item list-group-item-action sector-filter" data-sector="tech">科技</a>
+                        <a href="#" class="list-group-item list-group-item-action sector-filter" data-sector="finance">金融</a>
+                        <a href="#" class="list-group-item list-group-item-action sector-filter" data-sector="energy">能源</a>
+                        <a href="#" class="list-group-item list-group-item-action sector-filter" data-sector="consumer">消费</a>
+                        <a href="#" class="list-group-item list-group-item-action sector-filter" data-sector="healthcare">医疗健康</a>
+                        <a href="#" class="list-group-item list-group-item-action sector-filter" data-sector="industrial">工业</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">热门股票</h5>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-primary active">市值</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary">涨幅</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary">成交量</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="popularStocks">
+                        <!-- 热门股票卡片 -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card stock-card" onclick="location.href='/stock/AAPL'">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h5 class="mb-0">AAPL</h5>
+                                            <p class="text-muted mb-2">Apple Inc.</p>
+                                        </div>
+                                        <span class="badge bg-success">+1.2%</span>
+                                    </div>
+                                    <h3>$182.52</h3>
+                                    <div class="mt-2">
+                                        <small class="text-muted">市值: 2.88T</small>
+                                        <div class="progress mt-1" style="height: 5px;">
+                                            <div class="progress-bar bg-success" style="width: 85%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card stock-card" onclick="location.href='/stock/MSFT'">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h5 class="mb-0">MSFT</h5>
+                                            <p class="text-muted mb-2">Microsoft Corp.</p>
+                                        </div>
+                                        <span class="badge bg-success">+0.8%</span>
+                                    </div>
+                                    <h3>$426.84</h3>
+                                    <div class="mt-2">
+                                        <small class="text-muted">市值: 3.17T</small>
+                                        <div class="progress mt-1" style="height: 5px;">
+                                            <div class="progress-bar bg-success" style="width: 90%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card stock-card" onclick="location.href='/stock/GOOG'">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h5 class="mb-0">GOOG</h5>
+                                            <p class="text-muted mb-2">Alphabet Inc.</p>
+                                        </div>
+                                        <span class="badge bg-danger">-0.5%</span>
+                                    </div>
+                                    <h3>$147.95</h3>
+                                    <div class="mt-2">
+                                        <small class="text-muted">市值: 1.85T</small>
+                                        <div class="progress mt-1" style="height: 5px;">
+                                            <div class="progress-bar bg-danger" style="width: 75%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">所有股票</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="sortDropdown" data-bs-toggle="dropdown">
+                            排序方式
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#">按市值</a></li>
+                            <li><a class="dropdown-item" href="#">按涨跌幅</a></li>
+                            <li><a class="dropdown-item" href="#">按股票代码</a></li>
+                            <li><a class="dropdown-item" href="#">按名称</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>代码</th>
+                                    <th>名称</th>
+                                    <th>最新价</th>
+                                    <th>涨跌幅</th>
+                                    <th>成交量</th>
+                                    <th>市值</th>
+                                    <th>行业</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="clickable-row" onclick="location.href='/stock/AAPL'">
+                                    <td>AAPL</td>
+                                    <td>Apple Inc.</td>
+                                    <td>$182.52</td>
+                                    <td class="text-success">+1.2%</td>
+                                    <td>56.8M</td>
+                                    <td>2.88T</td>
+                                    <td>科技</td>
+                                </tr>
+                                <tr class="clickable-row" onclick="location.href='/stock/MSFT'">
+                                    <td>MSFT</td>
+                                    <td>Microsoft Corp.</td>
+                                    <td>$426.84</td>
+                                    <td class="text-success">+0.8%</td>
+                                    <td>28.5M</td>
+                                    <td>3.17T</td>
+                                    <td>科技</td>
+                                </tr>
+                                <tr class="clickable-row" onclick="location.href='/stock/GOOG'">
+                                    <td>GOOG</td>
+                                    <td>Alphabet Inc.</td>
+                                    <td>$147.95</td>
+                                    <td class="text-danger">-0.5%</td>
+                                    <td>20.1M</td>
+                                    <td>1.85T</td>
+                                    <td>科技</td>
+                                </tr>
+                                <tr class="clickable-row" onclick="location.href='/stock/AMZN'">
+                                    <td>AMZN</td>
+                                    <td>Amazon.com Inc.</td>
+                                    <td>$178.75</td>
+                                    <td class="text-success">+0.3%</td>
+                                    <td>32.7M</td>
+                                    <td>1.92T</td>
+                                    <td>消费</td>
+                                </tr>
+                                <tr class="clickable-row" onclick="location.href='/stock/META'">
+                                    <td>META</td>
+                                    <td>Meta Platforms Inc.</td>
+                                    <td>$484.32</td>
+                                    <td class="text-success">+2.1%</td>
+                                    <td>18.6M</td>
+                                    <td>1.24T</td>
+                                    <td>科技</td>
+                                </tr>
+                                <tr class="clickable-row" onclick="location.href='/stock/TSLA'">
+                                    <td>TSLA</td>
+                                    <td>Tesla Inc.</td>
+                                    <td>$174.48</td>
+                                    <td class="text-danger">-1.8%</td>
+                                    <td>103.2M</td>
+                                    <td>559.85B</td>
+                                    <td>汽车</td>
+                                </tr>
+                                <tr class="clickable-row" onclick="location.href='/stock/JPM'">
+                                    <td>JPM</td>
+                                    <td>JPMorgan Chase & Co.</td>
+                                    <td>$197.45</td>
+                                    <td class="text-success">+0.5%</td>
+                                    <td>8.4M</td>
+                                    <td>571.66B</td>
+                                    <td>金融</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center mt-4">
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" tabindex="-1">上一页</a>
+                            </li>
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link" href="#">3</a></li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">下一页</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 筛选按钮点击
+        document.querySelectorAll('.sector-filter').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // 移除所有活跃状态
+                document.querySelectorAll('.sector-filter').forEach(el => {
+                    el.classList.remove('active');
+                });
+                
+                // 添加当前活跃状态
+                this.classList.add('active');
+                
+                const sector = this.getAttribute('data-sector');
+                console.log('筛选行业:', sector);
+                
+                // 在这里添加筛选逻辑
+                if (sector === 'all') {
+                    // 显示所有股票
+                } else {
+                    // 筛选指定行业的股票
+                }
+            });
+        });
+        
+        // 搜索按钮点击
+        document.getElementById('searchBtn').addEventListener('click', function() {
+            const query = document.getElementById('stockSearch').value.trim();
+            if (query) {
+                console.log('搜索股票:', query);
+                // 在这里添加搜索逻辑
+            }
+        });
+        
+        // 回车键搜索
+        document.getElementById('stockSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('searchBtn').click();
+            }
+        });
+        
+        // 排序下拉菜单点击
+        document.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const sortMethod = this.textContent;
+                console.log('排序方式:', sortMethod);
+                // 在这里添加排序逻辑
+            });
+        });
+    });
+</script>
+{% endblock %} 

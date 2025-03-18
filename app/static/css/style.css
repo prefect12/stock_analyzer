@@ -1,0 +1,133 @@
+/* 全局样式 */
+body {
+    font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    color: #333;
+    background-color: #f8f9fa;
+}
+
+/* 导航栏样式 */
+.navbar {
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+.navbar-brand {
+    font-weight: 700;
+    color: #4e73df;
+}
+
+/* 卡片样式 */
+.card {
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+    margin-bottom: 1.5rem;
+    border: none;
+    border-radius: 0.35rem;
+}
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e3e6f0;
+    padding: 0.75rem 1.25rem;
+}
+
+/* 按钮样式 */
+.btn-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+.btn-primary:hover {
+    background-color: #2e59d9;
+    border-color: #2e59d9;
+}
+.btn-outline-primary {
+    color: #4e73df;
+    border-color: #4e73df;
+}
+.btn-outline-primary:hover {
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+
+/* 表格样式 */
+.table th {
+    font-weight: 600;
+    border-top: none;
+}
+.table td {
+    vertical-align: middle;
+}
+
+/* 图表容器 */
+.chart-container {
+    position: relative;
+    height: 400px;
+    width: 100%;
+}
+
+/* 面包屑导航 */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.75rem 0;
+    margin-bottom: 1rem;
+}
+.breadcrumb-item a {
+    color: #4e73df;
+    text-decoration: none;
+}
+.breadcrumb-item.active {
+    color: #858796;
+}
+
+/* 股票/ETF标签 */
+.stock-tag {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    color: #fff;
+}
+.stock-tag.up {
+    background-color: #1cc88a;
+}
+.stock-tag.down {
+    background-color: #e74a3b;
+}
+
+/* 数据标签 */
+.data-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #858796;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+}
+.data-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+.data-value.up {
+    color: #1cc88a;
+}
+.data-value.down {
+    color: #e74a3b;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    .chart-container {
+        height: 300px;
+    }
+}
+
+/* 页脚样式 */
+.footer {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    color: #858796;
+    background-color: #fff;
+    border-top: 1px solid #e3e6f0;
+} 

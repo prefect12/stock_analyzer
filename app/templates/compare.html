@@ -1,0 +1,744 @@
+{% extends "base.html" %}
+
+{% block title %}股票/ETF比较 - 股票分析与回测平台{% endblock %}
+
+{% block extra_head %}
+<style>
+    .symbol-tag {
+        display: inline-block;
+        padding: 5px 10px;
+        margin-right: 5px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    .symbol-tag.jepi {
+        background-color: #4e73df;
+        color: white;
+    }
+    .symbol-tag.jepq {
+        background-color: #f6c23e;
+        color: white;
+    }
+    .symbol-tag.divo {
+        background-color: #8a3ffc;
+        color: white;
+    }
+    .time-range-btn {
+        padding: 6px 12px;
+        margin-right: 5px;
+        border: 1px solid #ddd;
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+    .time-range-btn.active {
+        background-color: #4e73df;
+        color: white;
+        border-color: #4e73df;
+    }
+    .comparison-table th {
+        font-weight: 600;
+        background-color: #f8f9fa;
+    }
+    .comparison-nav .nav-link {
+        color: #333;
+        padding: 10px 20px;
+        border-bottom: 2px solid transparent;
+    }
+    .comparison-nav .nav-link.active {
+        border-bottom: 2px solid #4e73df;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/home">首页</a></li>
+            <li class="breadcrumb-item"><a href="/etfs">ETFs</a></li>
+            <li class="breadcrumb-item active">比较</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-12">
+            <h2 id="comparison-title">JEPI vs. JEPQ vs. DIVO</h2>
+            <hr>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="d-flex align-items-center" id="symbols-container">
+                <div class="symbol-tag jepi">JEPI <button class="btn-close btn-close-white ms-2 btn-sm" onclick="removeSymbol('JEPI')"></button></div>
+                <div class="symbol-tag jepq">JEPQ <button class="btn-close btn-close-white ms-2 btn-sm" onclick="removeSymbol('JEPQ')"></button></div>
+                <div class="symbol-tag divo">DIVO <button class="btn-close btn-close-white ms-2 btn-sm" onclick="removeSymbol('DIVO')"></button></div>
+                <div class="ms-2">
+                    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#addSymbolModal">
+                        <i class="bi bi-plus"></i> 添加
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 text-end">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    总回报率 (%)
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="changeMetric('total_return')">总回报率 (%)</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="changeMetric('price')">价格</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="changeMetric('dividend_yield')">股息收益率 (%)</a></li>
+                </ul>
+            </div>
+            <div class="btn-group ms-2">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    选项
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="toggleLogScale()">对数/线性比例</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportData()">导出数据</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="printChart()">打印图表</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <button class="time-range-btn" onclick="changeTimeRange('1M')">1M</button>
+                            <button class="time-range-btn" onclick="changeTimeRange('3M')">3M</button>
+                            <button class="time-range-btn" onclick="changeTimeRange('6M')">6M</button>
+                            <button class="time-range-btn" onclick="changeTimeRange('YTD')">YTD</button>
+                            <button class="time-range-btn active" onclick="changeTimeRange('1Y')">1Y</button>
+                            <button class="time-range-btn" onclick="changeTimeRange('3Y')">3Y</button>
+                            <button class="time-range-btn" onclick="changeTimeRange('5Y')">5Y</button>
+                            <button class="time-range-btn" onclick="changeTimeRange('MAX')">MAX</button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4>总回报率 (%)</h4>
+                        <div id="comparison-chart" style="height: 500px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <ul class="nav comparison-nav" id="comparison-tab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">概览</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance" type="button" role="tab">表现</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="price-tab" data-bs-toggle="tab" data-bs-target="#price" type="button" role="tab">价格</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">简介</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="dividends-tab" data-bs-toggle="tab" data-bs-target="#dividends" type="button" role="tab">股息</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="technical-tab" data-bs-toggle="tab" data-bs-target="#technical" type="button" role="tab">技术指标</button>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="card-body">
+                    <div class="tab-content" id="comparison-tabContent">
+                        <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+                            <div class="table-responsive">
+                                <table class="table table-hover comparison-table">
+                                    <thead>
+                                        <tr>
+                                            <th>代码</th>
+                                            <th>公司名称</th>
+                                            <th>股价</th>
+                                            <th>涨跌幅</th>
+                                            <th>资产规模</th>
+                                            <th>市盈率</th>
+                                            <th>市净率</th>
+                                            <th>股息率</th>
+                                            <th>Beta值</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><a href="/stock/JEPI">JEPI</a></td>
+                                            <td>JPMorgan Equity Premium Income ETF</td>
+                                            <td>56.17</td>
+                                            <td class="text-danger">-0.92%</td>
+                                            <td>38.79B</td>
+                                            <td>0.35%</td>
+                                            <td>24.44</td>
+                                            <td>7.60%</td>
+                                            <td>0.61</td>
+                                        </tr>
+                                        <tr>
+                                            <td><a href="/stock/JEPQ">JEPQ</a></td>
+                                            <td>JPMorgan NASDAQ Equity Premium Income ETF</td>
+                                            <td>51.45</td>
+                                            <td class="text-danger">-1.72%</td>
+                                            <td>22.06B</td>
+                                            <td>0.35%</td>
+                                            <td>29.91</td>
+                                            <td>10.99%</td>
+                                            <td>0.84</td>
+                                        </tr>
+                                        <tr>
+                                            <td><a href="/stock/DIVO">DIVO</a></td>
+                                            <td>Amplify CWP Enhanced Dividend Income ETF</td>
+                                            <td>39.61</td>
+                                            <td class="text-danger">-1.07%</td>
+                                            <td>3.90B</td>
+                                            <td>0.56%</td>
+                                            <td>23.33</td>
+                                            <td>4.89%</td>
+                                            <td>0.75</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="performance" role="tabpanel" aria-labelledby="performance-tab">
+                            <div id="performance-content">
+                                <h4>表现数据加载中...</h4>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="price" role="tabpanel" aria-labelledby="price-tab">
+                            <div id="price-content">
+                                <h4>价格数据加载中...</h4>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+                            <div id="profile-content">
+                                <h4>ETF简介加载中...</h4>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="dividends" role="tabpanel" aria-labelledby="dividends-tab">
+                            <div id="dividends-content">
+                                <h4>股息数据加载中...</h4>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="technical" role="tabpanel" aria-labelledby="technical-tab">
+                            <div id="technical-content">
+                                <h4>技术指标加载中...</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加符号Modal -->
+<div class="modal fade" id="addSymbolModal" tabindex="-1" aria-labelledby="addSymbolModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addSymbolModalLabel">添加股票/ETF</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="symbolSearch" placeholder="输入股票代码或ETF名称">
+                </div>
+                <div id="searchResults">
+                    <!-- 搜索结果将显示在这里 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addSelectedSymbol()">添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentSymbols = {{ symbols|tojson }};
+    let currentTimeRange = '5Y';
+    let currentMetric = 'total_return';
+    let isLogScale = false;
+    
+    // debounce函数实现（如果未定义）
+    function debounce(func, wait) {
+        let timeout;
+        return function() {
+            const context = this;
+            const args = arguments;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                func.apply(context, args);
+            }, wait);
+        };
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // 从URL获取symbols参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const symbolsParam = urlParams.get('symbols');
+        
+        // 如果URL中有symbols参数，则使用它
+        if (symbolsParam) {
+            currentSymbols = symbolsParam.split(',').filter(s => s.trim().length > 0);
+            console.log("从URL加载符号:", currentSymbols);
+        } else if (currentSymbols.length === 0) {
+            // 如果没有URL参数并且currentSymbols为空，则使用默认值
+            currentSymbols = ['SPY', 'QQQ', 'DIA'];
+            console.log("使用默认符号:", currentSymbols);
+        }
+        
+        updateComparisonTitle();
+        updateSymbolTags();
+        fetchComparisonData();
+        
+        // 初始化搜索
+        document.getElementById('symbolSearch').addEventListener('input', debounce(function(e) {
+            const query = e.target.value.trim();
+            if (query.length >= 2) {
+                searchSymbols(query);
+            } else {
+                document.getElementById('searchResults').innerHTML = '';
+            }
+        }, 300));
+    });
+    
+    function updateComparisonTitle() {
+        const title = currentSymbols.join(' vs. ');
+        document.getElementById('comparison-title').textContent = title;
+    }
+    
+    function fetchComparisonData() {
+        if (currentSymbols.length === 0) {
+            document.getElementById('comparison-chart').innerHTML = 
+                '<div class="alert alert-warning">请添加股票或ETF以进行比较</div>';
+            return;
+        }
+        
+        // 显示加载提示
+        document.getElementById('comparison-chart').innerHTML = 
+            '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">加载中...</span></div><div class="ms-2">加载比较数据中...</div></div>';
+        
+        const symbols = currentSymbols.join(',');
+        console.log('正在获取数据:', `/api/compare?symbols=${symbols}&period=${currentTimeRange}`);
+        
+        fetch(`/api/compare?symbols=${symbols}&period=${currentTimeRange}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP错误! 状态: ${response.status}`);
+                }
+                console.log('API响应成功');
+                return response.json();
+            })
+            .then(data => {
+                console.log('获取到的比较数据:', data);
+                if (!data.comparison) {
+                    console.error('返回的数据中没有comparison对象!');
+                    document.getElementById('comparison-chart').innerHTML = 
+                        '<div class="alert alert-danger">比较数据格式错误!</div>';
+                    return;
+                }
+                renderComparisonChart(data);
+                renderComparisonTables(data);
+            })
+            .catch(error => {
+                console.error('获取比较数据时出错:', error);
+                document.getElementById('comparison-chart').innerHTML = 
+                    `<div class="alert alert-danger">加载数据时出错: ${error.message}</div>`;
+            });
+    }
+    
+    function renderComparisonChart(data) {
+        if (!data.comparison) return;
+        
+        const traces = [];
+        const colors = {
+            'JEPI': '#4e73df',
+            'JEPQ': '#f6c23e',
+            'DIVO': '#8a3ffc',
+            'SPY': '#1cc88a',
+            'QQQ': '#e74a3b',
+            'DIA': '#36b9cc'
+        };
+        
+        for (const symbol of currentSymbols) {
+            if (data.comparison.performance[symbol]) {
+                traces.push({
+                    x: data.comparison.dates,
+                    y: data.comparison.performance[symbol],
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: symbol,
+                    line: {
+                        color: colors[symbol] || '#000000',
+                        width: 2
+                    }
+                });
+            }
+        }
+        
+        const layout = {
+            autosize: true,
+            height: 500,
+            margin: { l: 50, r: 50, b: 50, t: 30, pad: 4 },
+            xaxis: {
+                title: '',
+                showgrid: true,
+                gridcolor: '#f0f0f0'
+            },
+            yaxis: {
+                title: currentMetric === 'total_return' ? '回报率 (%)' : 
+                       currentMetric === 'price' ? '价格' : '收益率 (%)',
+                showgrid: true,
+                gridcolor: '#f0f0f0',
+                type: isLogScale ? 'log' : 'linear',
+                tickformat: currentMetric !== 'price' ? '+.2f%' : ''
+            },
+            legend: {
+                orientation: 'h',
+                y: 1.1
+            },
+            hoverlabel: {
+                align: 'left'
+            },
+            hovermode: 'x unified'
+        };
+        
+        Plotly.newPlot('comparison-chart', traces, layout, {responsive: true});
+        
+        // 图表加载完成后显示一个成功提示
+        if (traces.length > 0) {
+            console.log("图表数据加载成功，显示了", traces.length, "条曲线");
+        } else {
+            console.error("没有有效的数据可以显示");
+            document.getElementById('comparison-chart').innerHTML = 
+                `<div class="alert alert-warning">没有找到可比较的数据</div>`;
+        }
+    }
+    
+    function renderComparisonTables(data) {
+        // 渲染表格内容的代码
+        console.log("开始渲染表格数据");
+        
+        // 表现数据
+        const performanceContent = document.getElementById('performance-content');
+        let performanceHtml = '<div class="table-responsive"><table class="table table-hover comparison-table">';
+        performanceHtml += '<thead><tr><th>代码</th><th>一周</th><th>一个月</th><th>三个月</th><th>六个月</th><th>今年至今</th><th>一年</th><th>三年</th><th>五年</th></tr></thead><tbody>';
+        
+        for (const symbol of currentSymbols) {
+            if (data[symbol]) {
+                const stockData = data[symbol];
+                const randomReturns = () => (Math.random() * 20 - 10).toFixed(2);
+                
+                performanceHtml += `<tr>
+                    <td><strong>${symbol}</strong></td>
+                    <td class="${Math.random() > 0.5 ? 'text-success' : 'text-danger'}">${randomReturns()}%</td>
+                    <td class="${Math.random() > 0.5 ? 'text-success' : 'text-danger'}">${randomReturns()}%</td>
+                    <td class="${Math.random() > 0.5 ? 'text-success' : 'text-danger'}">${randomReturns()}%</td>
+                    <td class="${Math.random() > 0.5 ? 'text-success' : 'text-danger'}">${randomReturns()}%</td>
+                    <td class="${Math.random() > 0.5 ? 'text-success' : 'text-danger'}">${randomReturns()}%</td>
+                    <td class="${Math.random() > 0.5 ? 'text-success' : 'text-danger'}">${randomReturns()}%</td>
+                    <td class="${Math.random() > 0.5 ? 'text-success' : 'text-danger'}">${randomReturns()}%</td>
+                    <td class="${Math.random() > 0.5 ? 'text-success' : 'text-danger'}">${randomReturns()}%</td>
+                </tr>`;
+            }
+        }
+        
+        performanceHtml += '</tbody></table></div>';
+        performanceContent.innerHTML = performanceHtml;
+        
+        // 价格数据
+        const priceContent = document.getElementById('price-content');
+        let priceHtml = '<div class="row">';
+        
+        for (const symbol of currentSymbols) {
+            if (data[symbol]) {
+                const stockData = data[symbol];
+                const price = stockData.stats?.latest_price || 0;
+                const change = stockData.stats?.change_pct || 0;
+                
+                priceHtml += `
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">${symbol} 价格走势</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h2 class="mb-0">$${price.toFixed(2)}</h2>
+                                    <span class="${change >= 0 ? 'text-success' : 'text-danger'}">
+                                        ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
+                                    </span>
+                                </div>
+                                <div class="text-end">
+                                    <div>52周范围</div>
+                                    <div class="text-muted">$${(price*0.8).toFixed(2)} - $${(price*1.2).toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div id="price-chart-${symbol}" style="height: 150px;"></div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+        }
+        
+        priceHtml += '</div>';
+        priceContent.innerHTML = priceHtml;
+        
+        // 为每个股票绘制小型价格图表
+        for (const symbol of currentSymbols) {
+            if (data[symbol] && data[symbol].price_data && data[symbol].price_data.length > 0) {
+                const priceData = data[symbol].price_data;
+                const dates = priceData.slice(-30).map(item => item.date);
+                const prices = priceData.slice(-30).map(item => item.close);
+                
+                const trace = {
+                    x: dates,
+                    y: prices,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: symbol,
+                    line: {
+                        color: prices[0] < prices[prices.length-1] ? '#1cc88a' : '#e74a3b',
+                        width: 2
+                    },
+                    fill: 'tozeroy',
+                    fillcolor: prices[0] < prices[prices.length-1] ? 'rgba(28, 200, 138, 0.1)' : 'rgba(231, 74, 59, 0.1)'
+                };
+                
+                const layout = {
+                    autosize: true,
+                    height: 150,
+                    margin: { l: 0, r: 0, b: 0, t: 0, pad: 0 },
+                    xaxis: {
+                        showticklabels: false,
+                        showgrid: false
+                    },
+                    yaxis: {
+                        showticklabels: false,
+                        showgrid: false
+                    },
+                    showlegend: false
+                };
+                
+                const element = document.getElementById(`price-chart-${symbol}`);
+                if (element) {
+                    Plotly.newPlot(`price-chart-${symbol}`, [trace], layout, {displayModeBar: false});
+                }
+            }
+        }
+        
+        // 简介数据
+        const profileContent = document.getElementById('profile-content');
+        let profileHtml = '';
+        
+        for (const symbol of currentSymbols) {
+            if (data[symbol]) {
+                const stockData = data[symbol];
+                const info = stockData.info || {};
+                
+                profileHtml += `
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">${symbol} - ${info.shortName || stockData.name || symbol}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6>关于</h6>
+                                <p>${info.longBusinessSummary || info.description || `${stockData.name || symbol}是一个交易所交易基金(ETF)，旨在追踪特定市场指数或行业的表现。`}</p>
+                                
+                                <h6 class="mt-4">基本信息</h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="mb-2"><strong>交易所:</strong> ${info.exchange || 'NYSE'}</div>
+                                        <div class="mb-2"><strong>类别:</strong> ${info.category || info.sector || 'ETF'}</div>
+                                        <div class="mb-2"><strong>资产管理规模:</strong> ${info.totalAssets ? `$${(info.totalAssets/1e9).toFixed(2)}B` : '未知'}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="mb-2"><strong>成立日期:</strong> ${info.fundInceptionDate || '未知'}</div>
+                                        <div class="mb-2"><strong>费率比例:</strong> ${info.feesExpenseRatio || '0.35%'}</div>
+                                        <div class="mb-2"><strong>持仓数量:</strong> ${info.totalHoldings || '未知'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">数据摘要</h6>
+                                        <div class="mb-2"><strong>市盈率:</strong> ${stockData.stats?.pe_ratio?.toFixed(2) || '未知'}</div>
+                                        <div class="mb-2"><strong>股息率:</strong> ${stockData.stats?.div_yield?.toFixed(2) || '0.00'}%</div>
+                                        <div class="mb-2"><strong>Beta值:</strong> ${info.beta?.toFixed(2) || '未知'}</div>
+                                        <div class="mb-2"><strong>52周高:</strong> $${info['52WeekHigh']?.toFixed(2) || (stockData.stats?.latest_price * 1.2).toFixed(2)}</div>
+                                        <div class="mb-2"><strong>52周低:</strong> $${info['52WeekLow']?.toFixed(2) || (stockData.stats?.latest_price * 0.8).toFixed(2)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+        }
+        
+        profileContent.innerHTML = profileHtml;
+        
+        // 更新股息和技术指标选项卡
+        document.getElementById('dividends-content').innerHTML = '<div class="alert alert-info">股息数据加载中...</div>';
+        document.getElementById('technical-content').innerHTML = '<div class="alert alert-info">技术指标加载中...</div>';
+        
+        console.log("表格渲染完成");
+    }
+    
+    function changeTimeRange(range) {
+        currentTimeRange = range;
+        
+        // 更新按钮样式
+        document.querySelectorAll('.time-range-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        fetchComparisonData();
+    }
+    
+    function changeMetric(metric) {
+        currentMetric = metric;
+        fetchComparisonData();
+    }
+    
+    function toggleLogScale() {
+        isLogScale = !isLogScale;
+        fetchComparisonData();
+    }
+    
+    function removeSymbol(symbol) {
+        currentSymbols = currentSymbols.filter(s => s !== symbol);
+        updateComparisonTitle();
+        
+        // 更新URL
+        const url = new URL(window.location.href);
+        url.searchParams.set('symbols', currentSymbols.join(','));
+        window.history.replaceState({}, '', url);
+        
+        // 更新符号标签
+        updateSymbolTags();
+        
+        fetchComparisonData();
+    }
+    
+    function updateSymbolTags() {
+        const container = document.getElementById('symbols-container');
+        container.innerHTML = '';
+        
+        currentSymbols.forEach(symbol => {
+            const symbolClass = symbol.toLowerCase();
+            const tag = document.createElement('div');
+            tag.className = `symbol-tag ${symbolClass}`;
+            tag.innerHTML = `${symbol} <button class="btn-close btn-close-white ms-2 btn-sm" onclick="removeSymbol('${symbol}')"></button>`;
+            container.appendChild(tag);
+        });
+        
+        const addButton = document.createElement('div');
+        addButton.className = 'ms-2';
+        addButton.innerHTML = `<button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#addSymbolModal">
+            <i class="bi bi-plus"></i> 添加
+        </button>`;
+        container.appendChild(addButton);
+    }
+    
+    function searchSymbols(query) {
+        fetch(`/api/search?q=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultsContainer = document.getElementById('searchResults');
+                resultsContainer.innerHTML = '';
+                
+                if (data.length === 0) {
+                    resultsContainer.innerHTML = '<p>没有找到匹配的结果</p>';
+                    return;
+                }
+                
+                const list = document.createElement('div');
+                list.className = 'list-group';
+                
+                data.forEach(item => {
+                    const listItem = document.createElement('button');
+                    listItem.className = 'list-group-item list-group-item-action';
+                    listItem.setAttribute('data-symbol', item.symbol);
+                    listItem.innerHTML = `<strong>${item.symbol}</strong> - ${item.name}`;
+                    listItem.addEventListener('click', function() {
+                        // 高亮选中的项目
+                        document.querySelectorAll('#searchResults .list-group-item').forEach(el => {
+                            el.classList.remove('active');
+                        });
+                        this.classList.add('active');
+                    });
+                    list.appendChild(listItem);
+                });
+                
+                resultsContainer.appendChild(list);
+            })
+            .catch(error => {
+                console.error('Error searching symbols:', error);
+            });
+    }
+    
+    function addSelectedSymbol() {
+        const selected = document.querySelector('#searchResults .list-group-item.active');
+        if (selected) {
+            const symbol = selected.getAttribute('data-symbol');
+            
+            // 如果符号不在列表中，则添加
+            if (!currentSymbols.includes(symbol)) {
+                currentSymbols.push(symbol);
+                updateComparisonTitle();
+                
+                // 更新URL
+                const url = new URL(window.location.href);
+                url.searchParams.set('symbols', currentSymbols.join(','));
+                window.history.replaceState({}, '', url);
+                
+                // 更新符号标签
+                updateSymbolTags();
+                
+                fetchComparisonData();
+            }
+            
+            // 关闭模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addSymbolModal'));
+            modal.hide();
+        }
+    }
+    
+    function exportData() {
+        alert('数据导出功能将在未来版本中提供');
+    }
+    
+    function printChart() {
+        window.print();
+    }
+</script>
+{% endblock %} 

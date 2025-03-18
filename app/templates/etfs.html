@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}ETF列表 - 股票分析与回测平台{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/home">首页</a></li>
+            <li class="breadcrumb-item active">ETFs</li>
+        </ol>
+    </nav>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>ETF列表</h2>
+                <a href="{{ url_for('main.search_etf') }}" class="btn btn-primary">
+                    <i class="bi bi-search"></i> 搜索其他ETF
+                </a>
+            </div>
+            <hr>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for etf in etfs %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ etf.symbol }}</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">{{ etf.name }}</h6>
+                    <p class="card-text">点击查看详细信息和历史表现</p>
+                    <a href="{{ url_for('main.etf_detail', symbol=etf.symbol) }}" class="btn btn-primary">查看详情</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">搜索任意ETF</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('main.search_etf') }}">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="text" class="form-control" name="symbol" placeholder="输入ETF代码，例如: ARKK, VTI, VOO..." required>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary w-100">搜索</button>
+                            </div>
+                        </div>
+                        <div class="form-text mt-2">输入任意ETF代码，系统将尝试获取其数据</div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,503 @@
+{% extends "base.html" %}
+
+{% block title %}策略回测 - 股票分析与回测平台{% endblock %}
+
+{% block extra_head %}
+<style>
+    .strategy-card {
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .strategy-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    .strategy-card.selected {
+        border-color: #4e73df;
+        border-width: 2px;
+    }
+    #results-container {
+        min-height: 400px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/home">首页</a></li>
+            <li class="breadcrumb-item active">策略回测</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-12">
+            <h2>投资策略回测</h2>
+            <p class="lead">通过历史数据测试您的投资策略表现，优化投资决策</p>
+            <hr>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">选择资产</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">股票/ETF代码</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="symbol-input" placeholder="例如: AAPL, MSFT">
+                            <button class="btn btn-outline-primary" type="button" id="add-symbol-btn">添加</button>
+                        </div>
+                        <div class="form-text">最多可添加5个股票或ETF</div>
+                    </div>
+                    
+                    <div id="selected-symbols" class="mb-3">
+                        <!-- 已选股票将显示在这里 -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">回测时间范围</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">开始日期</label>
+                        <input type="date" class="form-control" id="start-date" value="2018-01-01">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">结束日期</label>
+                        <input type="date" class="form-control" id="end-date">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">初始资金</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">金额 (USD)</label>
+                        <input type="number" class="form-control" id="initial-capital" value="10000">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid">
+                <button class="btn btn-primary" id="run-backtest-btn" onclick="runBacktest()">运行回测</button>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">选择投资策略</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card strategy-card h-100" onclick="selectStrategy('sma_crossover')">
+                                <div class="card-body">
+                                    <h5 class="card-title">SMA交叉策略</h5>
+                                    <p class="card-text">基于快速和慢速简单移动平均线交叉的交易信号</p>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="strategy" id="sma-strategy" value="sma_crossover">
+                                        <label class="form-check-label" for="sma-strategy">选择</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card strategy-card h-100" onclick="selectStrategy('bollinger_bands')">
+                                <div class="card-body">
+                                    <h5 class="card-title">布林带策略</h5>
+                                    <p class="card-text">利用价格突破布林带上下轨生成交易信号</p>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="strategy" id="bollinger-strategy" value="bollinger_bands">
+                                        <label class="form-check-label" for="bollinger-strategy">选择</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card strategy-card h-100" onclick="selectStrategy('rsi_strategy')">
+                                <div class="card-body">
+                                    <h5 class="card-title">RSI策略</h5>
+                                    <p class="card-text">通过相对强弱指数的超买超卖区域判断交易时机</p>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="strategy" id="rsi-strategy" value="rsi_strategy">
+                                        <label class="form-check-label" for="rsi-strategy">选择</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">策略参数</h5>
+                </div>
+                <div class="card-body">
+                    <!-- SMA交叉策略参数 -->
+                    <div id="sma-params" class="strategy-params">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">快速SMA周期</label>
+                                <input type="number" class="form-control" id="fast-sma" value="10">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">慢速SMA周期</label>
+                                <input type="number" class="form-control" id="slow-sma" value="30">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 布林带策略参数 -->
+                    <div id="bollinger-params" class="strategy-params" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">移动平均周期</label>
+                                <input type="number" class="form-control" id="bollinger-window" value="20">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">标准差倍数</label>
+                                <input type="number" class="form-control" id="bollinger-std" value="2" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RSI策略参数 -->
+                    <div id="rsi-params" class="strategy-params" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">RSI周期</label>
+                                <input type="number" class="form-control" id="rsi-period" value="14">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">超卖阈值</label>
+                                <input type="number" class="form-control" id="rsi-oversold" value="30">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">超买阈值</label>
+                                <input type="number" class="form-control" id="rsi-overbought" value="70">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">回测结果</h5>
+                </div>
+                <div class="card-body" id="results-container">
+                    <div class="text-center py-5">
+                        <i class="bi bi-bar-chart-line" style="font-size: 3rem; color: #ddd;"></i>
+                        <p class="mt-3 text-muted">添加股票并运行回测以查看结果</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let selectedSymbols = [];
+    let currentStrategy = 'sma_crossover';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // 设置默认结束日期为今天
+        document.getElementById('end-date').valueAsDate = new Date();
+        
+        // 添加股票按钮
+        document.getElementById('add-symbol-btn').addEventListener('click', addSymbol);
+        
+        // 回车键添加股票
+        document.getElementById('symbol-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addSymbol();
+            }
+        });
+        
+        // 默认选中SMA策略
+        document.getElementById('sma-strategy').checked = true;
+        document.querySelector('.strategy-card').classList.add('selected');
+    });
+    
+    function addSymbol() {
+        const input = document.getElementById('symbol-input');
+        const symbol = input.value.trim().toUpperCase();
+        
+        if (!symbol) return;
+        
+        if (selectedSymbols.includes(symbol)) {
+            alert('该股票已添加');
+            return;
+        }
+        
+        if (selectedSymbols.length >= 5) {
+            alert('最多只能添加5个股票');
+            return;
+        }
+        
+        // 添加到数组
+        selectedSymbols.push(symbol);
+        
+        // 更新UI
+        updateSelectedSymbols();
+        
+        // 清空输入框
+        input.value = '';
+    }
+    
+    function removeSymbol(symbol) {
+        selectedSymbols = selectedSymbols.filter(s => s !== symbol);
+        updateSelectedSymbols();
+    }
+    
+    function updateSelectedSymbols() {
+        const container = document.getElementById('selected-symbols');
+        container.innerHTML = '';
+        
+        if (selectedSymbols.length === 0) {
+            container.innerHTML = '<div class="text-muted">未选择任何股票</div>';
+            return;
+        }
+        
+        selectedSymbols.forEach(symbol => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-primary me-2 mb-2 p-2';
+            badge.innerHTML = `${symbol} <i class="bi bi-x-circle ms-1" style="cursor: pointer;" onclick="removeSymbol('${symbol}')"></i>`;
+            container.appendChild(badge);
+        });
+    }
+    
+    function selectStrategy(strategy) {
+        currentStrategy = strategy;
+        
+        // 更新单选按钮状态
+        document.querySelectorAll('[name="strategy"]').forEach(radio => {
+            radio.checked = radio.value === strategy;
+        });
+        
+        // 更新卡片样式
+        document.querySelectorAll('.strategy-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        document.querySelector(`[value="${strategy}"]`).closest('.strategy-card').classList.add('selected');
+        
+        // 显示对应的参数面板
+        document.querySelectorAll('.strategy-params').forEach(panel => {
+            panel.style.display = 'none';
+        });
+        
+        if (strategy === 'sma_crossover') {
+            document.getElementById('sma-params').style.display = 'block';
+        } else if (strategy === 'bollinger_bands') {
+            document.getElementById('bollinger-params').style.display = 'block';
+        } else if (strategy === 'rsi_strategy') {
+            document.getElementById('rsi-params').style.display = 'block';
+        }
+    }
+    
+    function runBacktest() {
+        if (selectedSymbols.length === 0) {
+            alert('请至少添加一个股票');
+            return;
+        }
+        
+        const resultsContainer = document.getElementById('results-container');
+        resultsContainer.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p class="mt-3">正在运行回测，请稍候...</p>
+            </div>
+        `;
+        
+        // 获取策略参数
+        let params = {};
+        if (currentStrategy === 'sma_crossover') {
+            params = {
+                fast_sma: parseInt(document.getElementById('fast-sma').value),
+                slow_sma: parseInt(document.getElementById('slow-sma').value)
+            };
+        } else if (currentStrategy === 'bollinger_bands') {
+            params = {
+                n: parseInt(document.getElementById('bollinger-window').value),
+                k: parseFloat(document.getElementById('bollinger-std').value)
+            };
+        } else if (currentStrategy === 'rsi_strategy') {
+            params = {
+                period: parseInt(document.getElementById('rsi-period').value),
+                oversold: parseInt(document.getElementById('rsi-oversold').value),
+                overbought: parseInt(document.getElementById('rsi-overbought').value)
+            };
+        }
+        
+        // 准备请求数据
+        const data = {
+            symbols: selectedSymbols,
+            strategy: currentStrategy,
+            params: params,
+            start_date: document.getElementById('start-date').value,
+            end_date: document.getElementById('end-date').value,
+            initial_capital: parseFloat(document.getElementById('initial-capital').value)
+        };
+        
+        // 发送请求
+        fetch('/api/backtest', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(results => {
+            renderResults(results);
+        })
+        .catch(error => {
+            console.error('回测出错:', error);
+            resultsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    回测过程中发生错误。请检查您的输入并重试。
+                </div>
+            `;
+        });
+    }
+    
+    function renderResults(results) {
+        const container = document.getElementById('results-container');
+        
+        if (Object.keys(results).length === 0 || results.error) {
+            container.innerHTML = `
+                <div class="alert alert-warning">
+                    ${results.error || '回测未返回任何结果。请检查您的输入参数。'}
+                </div>
+            `;
+            return;
+        }
+        
+        let content = '';
+        
+        // 遍历每个股票的结果
+        for (const symbol in results) {
+            const result = results[symbol];
+            
+            // 如果该股票有错误
+            if (result.error) {
+                content += `
+                    <div class="alert alert-warning mb-4">
+                        ${symbol}: ${result.error}
+                    </div>
+                `;
+                continue;
+            }
+            
+            // 创建结果卡片
+            content += `
+                <div class="mb-4">
+                    <h4>${symbol} 回测结果</h4>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div id="equity-chart-${symbol}" style="height: 300px;"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h5 class="mb-0">表现指标</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>总回报率:</span>
+                                        <span class="${result.return > 0 ? 'text-success' : 'text-danger'}">${result.return.toFixed(2)}%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>最大回撤:</span>
+                                        <span class="text-danger">-${result.max_drawdown.toFixed(2)}%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>夏普比率:</span>
+                                        <span>${result.sharpe_ratio.toFixed(2)}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>SQN指标:</span>
+                                        <span>${result.sqn.toFixed(2)}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>交易次数:</span>
+                                        <span>${result.trades_count}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>胜率:</span>
+                                        <span>${result.win_rate.toFixed(2)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = content;
+        
+        // 绘制图表
+        for (const symbol in results) {
+            const result = results[symbol];
+            if (!result.error && result.equity_curve) {
+                const dates = Array.from({ length: result.equity_curve.length }, (_, i) => i);
+                
+                const trace = {
+                    x: dates,
+                    y: result.equity_curve,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `${symbol} 净值`,
+                    line: {
+                        color: '#4e73df',
+                        width: 2
+                    }
+                };
+                
+                const layout = {
+                    title: `${symbol} 权益曲线`,
+                    autosize: true,
+                    height: 300,
+                    margin: { l: 50, r: 50, b: 50, t: 50, pad: 4 },
+                    xaxis: {
+                        title: '交易日',
+                        showgrid: true,
+                        gridcolor: '#f0f0f0'
+                    },
+                    yaxis: {
+                        title: '净值',
+                        showgrid: true,
+                        gridcolor: '#f0f0f0'
+                    }
+                };
+                
+                Plotly.newPlot(`equity-chart-${symbol}`, [trace], layout);
+            }
+        }
+    }
+</script>
+{% endblock %} 

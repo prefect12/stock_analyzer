@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}错误 - 股票分析与回测平台{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">出错了</h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 4rem;"></i>
+                    </div>
+                    <h5 class="text-center mb-4">{{ message }}</h5>
+                    <p class="text-center">
+                        可能的原因：
+                    </p>
+                    <ul class="list-group mb-4">
+                        <li class="list-group-item">股票或ETF代码输入错误</li>
+                        <li class="list-group-item">数据源暂时不可用</li>
+                        <li class="list-group-item">网络连接问题</li>
+                        <li class="list-group-item">该股票或ETF可能已退市或不再交易</li>
+                    </ul>
+                    <div class="text-center">
+                        <a href="/" class="btn btn-primary me-2">返回首页</a>
+                        <a href="javascript:history.back()" class="btn btn-secondary">返回上一页</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

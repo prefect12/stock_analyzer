@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}{{ stock.symbol }} - {{ stock.name }} - 股票分析与回测平台{% endblock %}
+
+{% block extra_head %}
+<style>
+    .stats-card {
+        transition: all 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        background-color: #f8f9fa;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: #495057;
+        padding: 0.5rem 1rem;
+        margin-right: 0.5rem;
+        border-bottom: 2px solid transparent;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #4e73df;
+        background-color: transparent;
+        border-bottom: 2px solid #4e73df;
+    }
+    
+    .metric-card {
+        border-radius: 0.5rem;
+    }
+    
+    .price-tag {
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    
+    .price-change {
+        font-size: 1.25rem;
+    }
+    
+    .indicator-up {
+        color: #28a745;
+    }
+    
+    .indicator-down {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/home">首页</a></li>
+            <li class="breadcrumb-item"><a href="/stocks">股票</a></li>
+            <li class="breadcrumb-item active">{{ stock.symbol }}</li>
+        </ol>
+    </nav>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex align-items-center">
+                <div class="bg-primary text-white p-2 me-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                    <span class="h3 mb-0">{{ stock.symbol }}</span>
+                </div>
+                <div>
+                    <h1 class="mb-0">{{ stock.name }}</h1>
+                    <div class="text-muted">{{ stock.info.sector }}</div>
+                </div>
+                <button class="btn btn-outline-primary ms-auto" id="addToWatchlist"><i class="bi bi-bookmark"></i> 添加到监视列表</button>
+            </div>
+            <hr>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <span class="price-tag">${{ stock.stats.latest_price }}</span>
+                            <span class="price-change ms-2 {{ 'indicator-up' if stock.stats.change_pct >= 0 else 'indicator-down' }}">
+                                <i class="bi {{ 'bi-arrow-up' if stock.stats.change_pct >= 0 else 'bi-arrow-down' }}"></i>
+                                {{ stock.stats.change_pct }}%
+                            </span>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-secondary">1D</button>
+                            <button class="btn btn-sm btn-outline-secondary">1W</button>
+                            <button class="btn btn-sm btn-outline-secondary">1M</button>
+                            <button class="btn btn-sm btn-outline-secondary active">3M</button>
+                            <button class="btn btn-sm btn-outline-secondary">6M</button>
+                            <button class="btn btn-sm btn-outline-secondary">1Y</button>
+                            <button class="btn btn-sm btn-outline-secondary">5Y</button>
+                            <button class="btn btn-sm btn-outline-secondary">MAX</button>
+                        </div>
+                    </div>
+                    
+                    <div id="price-chart" style="height: 350px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">关键指标</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="stats-card p-2 rounded">
+                                <div class="text-muted small">开盘价</div>
+                                <div class="h5 mb-0">${{ stock.price_data[-1]['open'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stats-card p-2 rounded">
+                                <div class="text-muted small">最高价</div>
+                                <div class="h5 mb-0">${{ stock.price_data[-1]['high'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stats-card p-2 rounded">
+                                <div class="text-muted small">最低价</div>
+                                <div class="h5 mb-0">${{ stock.price_data[-1]['low'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stats-card p-2 rounded">
+                                <div class="text-muted small">成交量</div>
+                                <div class="h5 mb-0">{{ '{:,}'.format(stock.price_data[-1]['volume']) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stats-card p-2 rounded">
+                                <div class="text-muted small">市盈率</div>
+                                <div class="h5 mb-0">{{ stock.stats.pe_ratio }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stats-card p-2 rounded">
+                                <div class="text-muted small">股息率</div>
+                                <div class="h5 mb-0">{{ stock.stats.div_yield }}%</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stats-card p-2 rounded">
+                                <div class="text-muted small">Beta值</div>
+                                <div class="h5 mb-0">{{ stock.info.beta if stock.info.beta else 'N/A' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stats-card p-2 rounded">
+                                <div class="text-muted small">52周区间</div>
+                                <div class="h5 mb-0">{{ stock.info.fiftyTwoWeekLow if stock.info.fiftyTwoWeekLow else stock.stats.latest_price * 0.7 | round(2) }} - {{ stock.info.fiftyTwoWeekHigh if stock.info.fiftyTwoWeekHigh else stock.stats.latest_price * 1.3 | round(2) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs mb-4" id="stock-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview-tab-pane" type="button" role="tab">概览</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chart-tab-pane" type="button" role="tab">图表</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="financials-tab" data-bs-toggle="tab" data-bs-target="#financials-tab-pane" type="button" role="tab">财务数据</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="news-tab" data-bs-toggle="tab" data-bs-target="#news-tab-pane" type="button" role="tab">新闻</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="technical-tab" data-bs-toggle="tab" data-bs-target="#technical-tab-pane" type="button" role="tab">技术分析</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="dividends-tab" data-bs-toggle="tab" data-bs-target="#dividends-tab-pane" type="button" role="tab">股息</button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="stock-tabs-content">
+                <!-- 概览选项卡 -->
+                <div class="tab-pane fade show active" id="overview-tab-pane" role="tabpanel" aria-labelledby="overview-tab" tabindex="0">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card mb-4">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">公司概览</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>{{ stock.info.longBusinessSummary if stock.info.longBusinessSummary else stock.name + ' 是一家领先的公司，专注于提供创新产品和服务。' }}</p>
+                                    
+                                    <div class="row mt-4">
+                                        <div class="col-md-6">
+                                            <table class="table table-sm">
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="text-muted">交易所</td>
+                                                        <td>{{ stock.info.exchange if stock.info.exchange else 'NASDAQ' }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="text-muted">行业</td>
+                                                        <td>{{ stock.info.industry if stock.info.industry else '科技' }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="text-muted">市值</td>
+                                                        <td>{{ stock.info.marketCap | default('N/A') }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="text-muted">雇员数</td>
+                                                        <td>{{ stock.info.fullTimeEmployees | default('N/A') }}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <table class="table table-sm">
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="text-muted">网站</td>
+                                                        <td>{{ stock.info.website if stock.info.website else 'www.example.com' }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="text-muted">CEO</td>
+                                                        <td>{{ stock.info.ceo if stock.info.ceo else 'N/A' }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="text-muted">成立年份</td>
+                                                        <td>{{ stock.info.foundedYear if stock.info.foundedYear else 'N/A' }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="text-muted">总部</td>
+                                                        <td>{{ stock.info.city if stock.info.city else 'N/A' }}, {{ stock.info.country if stock.info.country else 'USA' }}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">最新新闻</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="list-group list-group-flush">
+                                        <a href="#" class="list-group-item list-group-item-action">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">{{ stock.symbol }}公司宣布新产品发布</h6>
+                                                <small class="text-muted">3天前</small>
+                                            </div>
+                                            <p class="mb-1">{{ stock.name }}的新产品将于下个月上市，分析师预测销售强劲。</p>
+                                        </a>
+                                        <a href="#" class="list-group-item list-group-item-action">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">{{ stock.symbol }}季度财报超出预期</h6>
+                                                <small class="text-muted">1周前</small>
+                                            </div>
+                                            <p class="mb-1">{{ stock.name }}第二季度收入和利润均超出分析师预期，股价上涨。</p>
+                                        </a>
+                                        <a href="#" class="list-group-item list-group-item-action">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">{{ stock.symbol }}扩大国际市场份额</h6>
+                                                <small class="text-muted">2周前</small>
+                                            </div>
+                                            <p class="mb-1">{{ stock.name }}在亚洲市场的份额达到历史新高，国际收入同比增长25%。</p>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card mb-4">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">股票评级</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="text-center mb-4">
+                                        <div class="display-4 fw-bold text-primary">4.2</div>
+                                        <div class="text-muted">分析师平均评级</div>
+                                        <div class="d-flex justify-content-center mt-2">
+                                            <i class="bi bi-star-fill text-warning mx-1"></i>
+                                            <i class="bi bi-star-fill text-warning mx-1"></i>
+                                            <i class="bi bi-star-fill text-warning mx-1"></i>
+                                            <i class="bi bi-star-fill text-warning mx-1"></i>
+                                            <i class="bi bi-star-half text-warning mx-1"></i>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>买入</span>
+                                        <div class="progress flex-grow-1 mx-3" style="height: 8px;">
+                                            <div class="progress-bar bg-success" style="width: 65%;"></div>
+                                        </div>
+                                        <span>15</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>增持</span>
+                                        <div class="progress flex-grow-1 mx-3" style="height: 8px;">
+                                            <div class="progress-bar bg-primary" style="width: 20%;"></div>
+                                        </div>
+                                        <span>5</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>持有</span>
+                                        <div class="progress flex-grow-1 mx-3" style="height: 8px;">
+                                            <div class="progress-bar bg-warning" style="width: 10%;"></div>
+                                        </div>
+                                        <span>3</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>减持</span>
+                                        <div class="progress flex-grow-1 mx-3" style="height: 8px;">
+                                            <div class="progress-bar bg-danger" style="width: 5%;"></div>
+                                        </div>
+                                        <span>1</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>卖出</span>
+                                        <div class="progress flex-grow-1 mx-3" style="height: 8px;">
+                                            <div class="progress-bar bg-danger" style="width: 0%;"></div>
+                                        </div>
+                                        <span>0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header bg-white">
+                                    <h5 class="mb-0">交易数据</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">上一个交易日</span>
+                                        <span>{{ stock.price_data[-1]['date'] }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">交易范围</span>
+                                        <span>${{ stock.price_data[-1]['low'] }} - ${{ stock.price_data[-1]['high'] }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">52周范围</span>
+                                        <span>${{ stock.info.get('fiftyTwoWeekLow', stock.stats.latest_price * 0.7)|round(2) }} - ${{ stock.info.get('fiftyTwoWeekHigh', stock.stats.latest_price * 1.3)|round(2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">成交量</span>
+                                        <span>{{ '{:,}'.format(stock.price_data[-1]['volume']) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">平均成交量</span>
+                                        <span>{{ '{:,}'.format(avg_volume) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">市值</span>
+                                        <span>{{ stock.info.marketCap if stock.info.marketCap else 'N/A' }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">市盈率</span>
+                                        <span>{{ stock.stats.pe_ratio }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">股息率</span>
+                                        <span>{{ stock.stats.div_yield }}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 其他选项卡内容将根据需要添加 -->
+                <div class="tab-pane fade" id="chart-tab-pane" role="tabpanel" aria-labelledby="chart-tab" tabindex="0">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">高级图表</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                高级图表功能正在开发中，敬请期待！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="financials-tab-pane" role="tabpanel" aria-labelledby="financials-tab" tabindex="0">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">财务数据</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                财务数据功能正在开发中，敬请期待！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="news-tab-pane" role="tabpanel" aria-labelledby="news-tab" tabindex="0">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">最新新闻</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                新闻功能正在开发中，敬请期待！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="technical-tab-pane" role="tabpanel" aria-labelledby="technical-tab" tabindex="0">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">技术分析</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                技术分析功能正在开发中，敬请期待！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="dividends-tab-pane" role="tabpanel" aria-labelledby="dividends-tab" tabindex="0">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">股息历史</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                股息历史功能正在开发中，敬请期待！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 价格图表
+        const priceChartData = JSON.parse('{{ price_data|tojson|safe }}');
+        Plotly.newPlot('price-chart', [{
+            x: priceChartData.dates,
+            y: priceChartData.prices,
+            type: 'scatter',
+            mode: 'lines',
+            name: '{{ stock.symbol }}',
+            line: {
+                color: '#4e73df',
+                width: 2
+            }
+        }], {
+            margin: { l: 40, r: 10, t: 10, b: 40 },
+            showlegend: false,
+            xaxis: {
+                showgrid: true,
+                gridcolor: '#e9ecef'
+            },
+            yaxis: {
+                showgrid: true,
+                gridcolor: '#e9ecef',
+                tickprefix: '$'
+            }
+        }, {responsive: true});
+        
+        // 添加到监视列表按钮
+        document.getElementById('addToWatchlist').addEventListener('click', function() {
+            // 监视列表功能逻辑
+            alert('已添加到监视列表');
+            this.innerHTML = '<i class="bi bi-bookmark-fill"></i> 已添加';
+            this.classList.remove('btn-outline-primary');
+            this.classList.add('btn-primary');
+        });
+    });
+</script>
+{% endblock %} 

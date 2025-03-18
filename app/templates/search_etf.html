@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}搜索ETF - 股票分析与回测平台{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">搜索ETF</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('main.search_etf') }}">
+                        <div class="mb-4">
+                            <label for="symbol" class="form-label">输入ETF代码</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control form-control-lg" id="symbol" name="symbol" placeholder="例如: SPY, QQQ, ARKK..." required>
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="bi bi-search"></i> 搜索
+                                </button>
+                            </div>
+                            <div class="form-text">输入任意ETF代码，系统将尝试获取其数据</div>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-4">
+                        <h5>热门ETF推荐</h5>
+                        <div class="row mt-3">
+                            <div class="col-md-4 mb-2">
+                                <a href="{{ url_for('main.etf_detail', symbol='SPY') }}" class="btn btn-outline-primary w-100">SPY</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="{{ url_for('main.etf_detail', symbol='QQQ') }}" class="btn btn-outline-primary w-100">QQQ</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="{{ url_for('main.etf_detail', symbol='DIA') }}" class="btn btn-outline-primary w-100">DIA</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="{{ url_for('main.etf_detail', symbol='ARKK') }}" class="btn btn-outline-primary w-100">ARKK</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="{{ url_for('main.etf_detail', symbol='VTI') }}" class="btn btn-outline-primary w-100">VTI</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="{{ url_for('main.etf_detail', symbol='VOO') }}" class="btn btn-outline-primary w-100">VOO</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5>ETF类别</h5>
+                        <div class="row mt-3">
+                            <div class="col-md-4 mb-2">
+                                <a href="#" class="btn btn-outline-secondary w-100">股息ETF</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="#" class="btn btn-outline-secondary w-100">科技ETF</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="#" class="btn btn-outline-secondary w-100">债券ETF</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="#" class="btn btn-outline-secondary w-100">国际ETF</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="#" class="btn btn-outline-secondary w-100">行业ETF</a>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <a href="#" class="btn btn-outline-secondary w-100">商品ETF</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
